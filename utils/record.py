@@ -5,6 +5,8 @@ Created on Sat Dec 29 16:08:37 2018
 @author: msq96
 """
 
+# SOURCE: # SOURCE: https://github.com/Sentdex/pygta5/blob/master/1.%20collect_data.py
+
 
 import time
 import cv2

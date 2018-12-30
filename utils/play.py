@@ -6,6 +6,8 @@ Created on Sat Dec 29 16:08:37 2018
 """
 
 
+# SOURCE: https://gist.github.com/Flandan/fdadd7046afee83822fcff003ab47087#file-vjoy-py
+
 import ctypes
 import struct
 import numpy as np
