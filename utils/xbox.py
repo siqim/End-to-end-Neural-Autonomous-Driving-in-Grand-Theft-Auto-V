@@ -5,7 +5,7 @@ Created on Sat Dec 29 16:08:37 2018
 @author: msq96
 """
 
-# SOURCE: https://github.com/siqim/TensorKart/blob/master/utils.py
+# SOURCE: https://github.com/kevinhughes27/TensorKart/blob/master/utils.py
 
 from inputs import get_gamepad
 import threading

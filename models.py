@@ -99,7 +99,6 @@ class Decoder(nn.Module):
                 nn.Linear(hidden_size, num_actions)
                 )
 
-
     def _init_state(self):
         h_0 = None
         c_0 = None

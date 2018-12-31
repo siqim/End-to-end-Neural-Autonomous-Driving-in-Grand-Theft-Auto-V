@@ -5,11 +5,13 @@ Created on Sun Dec 30 16:12:02 2018
 @author: msq96
 """
 
+
 import time
 import numpy as np
 import torch
 import pretrainedmodels
 import pretrainedmodels.utils as utils
+
 
 print(pretrainedmodels.model_names)
 test_models = ['pnasnet5large', 'nasnetalarge', 'senet154', 'polynet', 'inceptionv4', 'xception', 'resnet152']
