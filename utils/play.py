@@ -5,7 +5,6 @@ Created on Sat Dec 29 16:08:37 2018
 @author: msq96
 """
 
-
 # SOURCE: https://gist.github.com/Flandan/fdadd7046afee83822fcff003ab47087#file-vjoy-py
 
 import ctypes
@@ -14,6 +13,7 @@ import numpy as np
 
 
 CONST_DLL_VJOY = "play.dll"
+
 
 class vJoy():
     MAX_VAL = 32768
@@ -25,19 +25,7 @@ class vJoy():
         self.reference = reference
         self.acquired = False
 
-    def open(self):
-        if self.dll.AcquireVJD(self.reference):
-            self.acquired = True
-            return True
-        return False
-
-    def close(self):
-        if self.dll.RelinquishVJD(self.reference):
-            self.acquired = False
-            return True
-        return False
-
-    def generateJoystickPosition(self,
+    def _generateJoystickPosition(self,
         wThrottle = 0, wRudder = 0, wAileron = 0,
         # left thb x        left thb y     left trigger
         wAxisX = 16384,   wAxisY = 16384,   wAxisZ = 0,
@@ -82,21 +70,33 @@ class vJoy():
                                    wAxisVBRX, wAxisVBRY, wAxisVBRZ, lButtons, bHats, bHatsEx1, bHatsEx2, bHatsEx3)
         return pos
 
-    def min_max_norm(self, output):
+    def _min_max_norm(self, output):
         return [int(each_button*self.MAX_VAL) for each_button in output]
 
-    def update(self, joystickPosition):
+    def _update(self, joystickPosition):
         if self.dll.UpdateVJD(self.reference, joystickPosition):
             return True
         return False
 
+    def open(self):
+        if self.dll.AcquireVJD(self.reference):
+            self.acquired = True
+            return True
+        return False
+
     def run(self, output):
-        LX, LT, RT = vj.min_max_norm(output)
-        joystickPosition = vj.generateJoystickPosition(wAxisX = LX, wAxisZ=LT, wAxisZRot=RT)
-        vj.update(joystickPosition)
+        LX, LT, RT = vj._min_max_norm(output)
+        joystickPosition = vj._generateJoystickPosition(wAxisX = LX, wAxisZ=LT, wAxisZRot=RT)
+        vj._update(joystickPosition)
 
     def stop(self):
         vj.run([0.5, 0, 0])
+
+    def close(self):
+        if self.dll.RelinquishVJD(self.reference):
+            self.acquired = False
+            return True
+        return False
 
 
 if __name__ == '__main__':

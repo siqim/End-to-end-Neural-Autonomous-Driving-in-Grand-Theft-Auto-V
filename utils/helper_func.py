@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Dec 29 16:08:37 2018
+
+@author: msq96
+"""
+
+
 import cv2
 import numpy as np
 import win32gui, win32ui, win32con, win32api
