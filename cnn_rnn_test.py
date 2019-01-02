@@ -8,7 +8,9 @@ Created on Sun Dec 30 16:12:02 2018
 
 import time
 import numpy as np
+
 import torch
+import torch.nn as nn
 import pretrainedmodels
 import pretrainedmodels.utils as utils
 
@@ -55,3 +57,50 @@ for key, values in attr.items():
 # 0.2439 torch.Size([1, 3, 331, 331]) polynet
 
 # Xception won my trust!
+
+
+class RNN_speed_test(nn.Module):
+
+    def __init__(self,  input_size, hidden_size):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1, batch_first=True)
+        self.lstmcell = nn.LSTMCell(input_size=input_size, hidden_size=hidden_size)
+
+    def forward(self, inputs, flag, times=1000):
+        if flag == 'lstm':
+            time_used = []
+            for i in range(times):
+                s = time.time()
+                outputs, states = self.lstm(inputs)
+                e = time.time()
+                print(e-s)
+                time_used.append(e-s)
+            return [flag, '%.4f'%np.mean(time_used)]
+
+        elif flag == 'lstmcell':
+            time_used = []
+            for i in range(times):
+                s = time.time()
+                for j in range(inputs.size(1)):
+                    if j == 0:
+                        state = self.lstmcell(inputs[:, j, :])
+                    else:
+                        state = self.lstmcell(inputs[:, j, :], state)
+                e = time.time()
+                print(e-s)
+                time_used.append(e-s)
+            return [flag, '%.4f'%np.mean(time_used)]
+
+
+batch_size, seq_len, input_size, hidden_size = 1, 1, 2048*3, 2048*3
+
+model = RNN_speed_test(input_size, hidden_size)
+model.cuda()
+inputs = torch.rand([batch_size, seq_len, input_size]).cuda()
+
+lstm = model.forward(inputs, 'lstm')
+lstmcell = model.forward(inputs, 'lstmcell')
+print(lstm)
+print(lstmcell)
+
+# When seqence length >1, lstm is faster; lstmcell is faster otherwise.
