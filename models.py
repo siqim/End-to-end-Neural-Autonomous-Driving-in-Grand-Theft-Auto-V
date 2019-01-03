@@ -13,10 +13,8 @@ import pretrainedmodels
 
 class Encoder(nn.Module):
 
-    def __init__(self, seq_len, decoder_batch_size, freeze=True, model_name='xception', show_feature_dims=False):
+    def __init__(self, model_name='xception', freeze=True, show_feature_dims=False):
         super().__init__()
-        self.seq_len = seq_len
-        self.decoder_batch_size = decoder_batch_size
 
         self.model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
         if freeze:
@@ -38,7 +36,7 @@ class Encoder(nn.Module):
             self.num_loc = None
             self.encoder_dim = None
 
-    def forward(self, x):
+    def forward(self, x, decoder_batch_size, seq_len):
         """
         Encoder forward.
 
@@ -53,7 +51,7 @@ class Encoder(nn.Module):
 
         # (decoder_batch_size x seq_len) x encoder_dim x feature_width x feature_height
         x = self.model.features(x.view(-1, x.size(2), x.size(3), x.size(4)))
-        encoder_outputs = x.view(self.decoder_batch_size, self.seq_len, -1, x.size(1))
+        encoder_outputs = x.view(decoder_batch_size, seq_len, -1, x.size(1))
         return encoder_outputs
 
     def _forward_old(self, x):
@@ -134,17 +132,15 @@ class Attention(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, num_loc, encoder_dim, decoder_dim, attention_dim, num_actions,
-                 decoder_batch_size, seq_len, num_layers, dropout_prob=0.5):
+    def __init__(self, encoder_dim, decoder_dim, attention_dim,
+                 num_loc, num_actions, num_layers, dropout_prob=0.5):
         super().__init__()
 
-        self.num_loc = num_loc
         self.encoder_dim = encoder_dim
         self.decoder_dim = decoder_dim
         self.attention_dim = attention_dim
+        self.num_loc = num_loc
         self.num_actions = num_actions
-        self.decoder_batch_size = decoder_batch_size
-        self.seq_len = seq_len
         self.num_layers = num_layers
         self.dropout_prob = dropout_prob
 
@@ -167,30 +163,31 @@ class Decoder(nn.Module):
 
         self.sigmoid = nn.Sigmoid()
 
-    def _init_state(self):
-        h_0 = torch.zeros([self.num_layers, self.decoder_batch_size, self.decoder_dim]).cuda()
-        c_0 = torch.zeros([self.num_layers, self.decoder_batch_size, self.decoder_dim]).cuda()
+    def _init_state(self, decoder_batch_size):
+        h_0 = torch.zeros([self.num_layers, decoder_batch_size, self.decoder_dim]).cuda()
+        c_0 = torch.zeros([self.num_layers, decoder_batch_size, self.decoder_dim]).cuda()
 
         return (h_0, c_0)
 
-    def forward(self, encoder_outputs, actions):
+    def forward(self, encoder_outputs, actions, decoder_batch_size, seq_len):
         """
         Decoder forward.
 
         Params:
             encoder_outputs: Output features from encoder with size: decoder_batch_size x seq_len x num_loc x encoder_dim
             actions: True actions at each time step with size: decoder_batch_size x seq_len x num_actions
+                     Note that actions[:, 0, :] should be the init_action to start decoder forward process
 
         Returns:
             y: Predicted actions from decoder with size: decoder_batch_size x seq_len x num_actions
         """
 
         encoder_atts = self.att_model.generate_encoder_atts(encoder_outputs)  # decoder_batch_size x seq_len x num_loc x attention_dim
-        y = torch.zeros((self.decoder_batch_size, self.seq_len, self.num_actions)).cuda()
+        y = torch.zeros((decoder_batch_size, seq_len, self.num_actions)).cuda()
 
-        decoder_state = self._init_state()
+        decoder_state = self._init_state(decoder_batch_size)
 
-        for i in range(self.seq_len):
+        for i in range(seq_len):
 
             # (decoder_batch_size x num_loc x 1, decoder_batch_size x encoder_dim)
             alpha, attention_output = self.att_model.forward(encoder_outputs[:, i], encoder_atts[:, i], decoder_state[0])
@@ -207,18 +204,52 @@ class Decoder(nn.Module):
 
         return y
 
+    def inference(self, encoder_outputs, init_action, decoder_batch_size, seq_len):
+        """
+        Decoder inference.
+
+        Params:
+            encoder_outputs: Output features from encoder with size: decoder_batch_size x seq_len x num_loc x encoder_dim
+            init_action: y_0, to start decoder forward process with size: decoder_batch_size x num_actions
+
+        Returns:
+            y: Predicted actions from decoder with size: decoder_batch_size x seq_len x num_actions
+        """
+
+        encoder_atts = self.att_model.generate_encoder_atts(encoder_outputs)  # decoder_batch_size x seq_len x num_loc x attention_dim
+        y = torch.zeros((decoder_batch_size, seq_len+1, self.num_actions)).cuda()  # +1 to make the for loop easier to implement
+        y[:, 0] = init_action
+
+        decoder_state = self._init_state(decoder_batch_size)
+
+        for i in range(seq_len):
+
+            # (decoder_batch_size x num_loc x 1, decoder_batch_size x encoder_dim)
+            alpha, attention_output = self.att_model.forward(encoder_outputs[:, i], encoder_atts[:, i], decoder_state[0])
+
+            # decoder_batch_size x 1 x (encoder_dim + num_actions)
+            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
+            decoder_input = torch.cat((attention_output, y[:, i]), dim=1).unsqueeze(1)
+
+            # (decoder_batch_size x 1 x decoder_dim, (num_layers x decoder_batch_size x decoder_dim)*2)
+            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
+            output, decoder_state = self.lstm(decoder_input, decoder_state)
+
+            y[:, i+1] = self.sigmoid(self.fc_output(output.squeeze(1)))  # decoder_batch_size x num_actions
+
+        return y[:, 1:]
+
 
 if __name__ == '__main__':
 
     import time
     import numpy as np
 
-    seq_len, decoder_batch_size, num_actions, num_layers = 56, 2, 3, 2
+    seq_len, decoder_batch_size, num_actions, num_layers = 45, 2, 3, 2
     decoder_dim, attention_dim = 512, 512
     lr = 4e-4
 
-    encoder = Encoder(seq_len=seq_len, decoder_batch_size=decoder_batch_size,
-                      freeze=True, model_name='xception', show_feature_dims=True)
+    encoder = Encoder(model_name='xception', freeze=True, show_feature_dims=True)
     encoder.cuda()
     encoder.train()
 
@@ -228,9 +259,8 @@ if __name__ == '__main__':
     input_images = torch.rand((decoder_batch_size, seq_len, input_size[0], input_size[1], input_size[2])).cuda()
     actions = torch.rand((decoder_batch_size, seq_len, num_actions)).cuda()
 
-    decoder = Decoder(num_loc=num_loc, encoder_dim=encoder_dim, decoder_dim=decoder_dim, attention_dim=attention_dim,
-                      num_actions=num_actions, decoder_batch_size=decoder_batch_size, seq_len=seq_len,
-                      num_layers=num_layers)
+    decoder = Decoder(encoder_dim=encoder_dim, decoder_dim=decoder_dim, attention_dim=attention_dim,
+                      num_loc=num_loc, num_actions=num_actions, num_layers=num_layers)
     decoder.cuda()
     decoder.train()
 
@@ -239,14 +269,13 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     model_paras = list(encoder.parameters()) + list(decoder.parameters())
     optimizer = optim.Adam(model_paras, lr=lr)
-    for i in range(100):
+    for i in range(10):
         s = time.time()
 
         encoder.zero_grad()
         decoder.zero_grad()
-        encoder_outputs = encoder.forward(input_images)
-        y = decoder.forward(encoder_outputs, actions)
-
+        encoder_outputs = encoder.forward(input_images, decoder_batch_size, seq_len)
+        y = decoder.forward(encoder_outputs, actions, decoder_batch_size, seq_len)
         loss = criterion(y, actions)
         loss.backward()
 
@@ -255,5 +284,50 @@ if __name__ == '__main__':
         e = time.time()
         print(e-s)
         time_used.append(e-s)
+    print('----------------')
+    print(np.mean(time_used[1:]))
 
-    print(np.mean(time_used))
+
+    with torch.no_grad():
+        encoder.eval()
+        decoder.eval()
+        time_used = []
+        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
+
+        for i in range(10):
+            s = time.time()
+
+            encoder_outputs = encoder.forward(input_images, decoder_batch_size, seq_len)
+            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
+
+            e = time.time()
+            print(e-s)
+            time_used.append(e-s)
+
+        print('----------------')
+        print(np.mean(time_used[1:]))
+
+
+    with torch.no_grad():
+        encoder.eval()
+        decoder.eval()
+        decoder_batch_size, seq_len = 1, 1
+        time_used = []
+        input_image = torch.rand((1, 1, input_size[0], input_size[1], input_size[2])).cuda()
+        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
+
+        for i in range(100):
+            s = time.time()
+
+            encoder_outputs = encoder.forward(input_image, decoder_batch_size, seq_len)
+            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
+
+            e = time.time()
+            print(e-s)
+            time_used.append(e-s)
+
+        print('----------------')
+        print(np.mean(time_used[1:]))
+
+
+

@@ -17,7 +17,7 @@ from helper_func import pause_check, grab_screen, show_grabbed_screen
 
 controller = XboxController()
 training_data = []
-show_screen = False
+show_screen = True
 paused = False
 while 1:
 
@@ -33,6 +33,8 @@ while 1:
             show_grabbed_screen(screen)
 
         left_right, down, up = controller_data
+#        time.sleep(0.03)
+
         print("left_right: %.2f, down: %.2f, up: %.2f" % (left_right, down, up))
         print('loop took %.4f seconds' % (time.time()-last_time))
 

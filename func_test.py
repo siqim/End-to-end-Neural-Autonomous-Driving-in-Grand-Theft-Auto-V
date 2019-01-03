@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Dec 30 16:12:02 2018
+Created on Tue Jan  1 17:21:43 2019
 
 @author: msq96
 """
@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 import pretrainedmodels
 import pretrainedmodels.utils as utils
+
+from models import Encoder
 
 
 print(pretrainedmodels.model_names)
@@ -91,7 +93,6 @@ class RNN_speed_test(nn.Module):
                 time_used.append(e-s)
             return [flag, '%.4f'%np.mean(time_used)]
 
-
 batch_size, seq_len, input_size, hidden_size = 1, 1, 2048*3, 2048*3
 
 model = RNN_speed_test(input_size, hidden_size)
@@ -104,3 +105,26 @@ print(lstm)
 print(lstmcell)
 
 # When seqence length >1, lstm is faster; lstmcell is faster otherwise.
+
+
+def encoder_test(seq_len=4, decoder_batch_size=2, model_name='xception'):
+    encoder = Encoder(seq_len=seq_len, decoder_batch_size=decoder_batch_size, model_name=model_name)
+    encoder.cuda()
+    encoder.eval()
+
+    with torch.no_grad():
+        images = []
+        for i in range(decoder_batch_size):
+            images.append(torch.rand((seq_len, 3, 299, 299)))
+        images = torch.stack(images).cuda()
+        features = encoder.forward(images)
+
+        split_features = []
+        for i in range(decoder_batch_size):
+            split_features.append(encoder._forward_old(images[i]))
+        split_features = torch.stack(split_features)
+
+    assert(torch.all(split_features == features) == 1)
+    print('encoder test passed!')
+
+encoder_test()
