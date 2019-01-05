@@ -5,6 +5,7 @@ Created on Sun Dec 30 13:31:11 2018
 @author: msq96
 """
 
+
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -13,10 +14,10 @@ import pretrainedmodels
 
 class Encoder(nn.Module):
 
-    def __init__(self, model_name='xception', freeze=True, show_feature_dims=False):
+    def __init__(self, encoder_name='xception', freeze=1, show_feature_dims=False):
         super().__init__()
 
-        self.model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
+        self.model = pretrainedmodels.__dict__[encoder_name](num_classes=1000, pretrained='imagenet')
         if freeze:
             for param in self.model.parameters():
                 param.requires_grad_(requires_grad=False)
@@ -67,7 +68,6 @@ class Encoder(nn.Module):
         x = self.model.features(x)
         x = x.view(x.size(0), -1, x.size(1))
         return x
-
 
 
 class Attention(nn.Module):
@@ -249,7 +249,7 @@ if __name__ == '__main__':
     decoder_dim, attention_dim = 512, 512
     lr = 4e-4
 
-    encoder = Encoder(model_name='xception', freeze=True, show_feature_dims=True)
+    encoder = Encoder(encoder_name='xception', freeze=1, show_feature_dims=True)
     encoder.cuda()
     encoder.train()
 
@@ -288,46 +288,43 @@ if __name__ == '__main__':
     print(np.mean(time_used[1:]))
 
 
-    with torch.no_grad():
-        encoder.eval()
-        decoder.eval()
-        time_used = []
-        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
-
-        for i in range(10):
-            s = time.time()
-
-            encoder_outputs = encoder.forward(input_images, decoder_batch_size, seq_len)
-            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
-
-            e = time.time()
-            print(e-s)
-            time_used.append(e-s)
-
-        print('----------------')
-        print(np.mean(time_used[1:]))
-
-
-    with torch.no_grad():
-        encoder.eval()
-        decoder.eval()
-        decoder_batch_size, seq_len = 1, 1
-        time_used = []
-        input_image = torch.rand((1, 1, input_size[0], input_size[1], input_size[2])).cuda()
-        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
-
-        for i in range(100):
-            s = time.time()
-
-            encoder_outputs = encoder.forward(input_image, decoder_batch_size, seq_len)
-            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
-
-            e = time.time()
-            print(e-s)
-            time_used.append(e-s)
-
-        print('----------------')
-        print(np.mean(time_used[1:]))
-
-
-
+#    with torch.no_grad():
+#        encoder.eval()
+#        decoder.eval()
+#        time_used = []
+#        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
+#
+#        for i in range(10):
+#            s = time.time()
+#
+#            encoder_outputs = encoder.forward(input_images, decoder_batch_size, seq_len)
+#            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
+#
+#            e = time.time()
+#            print(e-s)
+#            time_used.append(e-s)
+#
+#        print('----------------')
+#        print(np.mean(time_used[1:]))
+#
+#
+#    with torch.no_grad():
+#        encoder.eval()
+#        decoder.eval()
+#        decoder_batch_size, seq_len = 1, 1
+#        time_used = []
+#        input_image = torch.rand((1, 1, input_size[0], input_size[1], input_size[2])).cuda()
+#        init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
+#
+#        for i in range(100):
+#            s = time.time()
+#
+#            encoder_outputs = encoder.forward(input_image, decoder_batch_size, seq_len)
+#            y = decoder.inference(encoder_outputs, init_action, decoder_batch_size, seq_len)
+#
+#            e = time.time()
+#            print(e-s)
+#            time_used.append(e-s)
+#
+#        print('----------------')
+#        print(np.mean(time_used[1:]))

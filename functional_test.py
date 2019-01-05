@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import pretrainedmodels
-import pretrainedmodels.utils as utils
+import pretrainedmodels.utils as pretrained_utils
 
 from models import Encoder
 
@@ -27,8 +27,8 @@ for model_name in test_models:
     model.cuda()
     model.eval()
     with torch.no_grad():
-        load_img = utils.LoadImage()
-        tf_img = utils.TransformImage(model)
+        load_img = pretrained_utils.LoadImage()
+        tf_img = pretrained_utils.TransformImage(model)
         path_img = '../test/2.png'
         input_img = load_img(path_img)
         input_tensor = tf_img(input_img)

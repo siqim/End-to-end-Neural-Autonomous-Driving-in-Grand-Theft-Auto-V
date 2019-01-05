@@ -6,6 +6,7 @@ Created on Sat Dec 29 16:08:37 2018
 """
 
 
+import os
 import cv2
 import numpy as np
 import win32gui, win32ui, win32con, win32api
@@ -57,3 +58,18 @@ def show_grabbed_screen(screen):
     if cv2.waitKey(25) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
         raise KeyboardInterrupt
+
+def init_starting_value(root_path):
+    starting_value = 1
+    while True:
+        file_name = root_path + 'training_data-{}.npy'.format(starting_value)
+
+        if os.path.isfile(file_name):
+            print('File exists, moving along', starting_value)
+            starting_value += 1
+        else:
+            print('File does not exist, starting fresh!', starting_value)
+
+            break
+
+    return starting_value

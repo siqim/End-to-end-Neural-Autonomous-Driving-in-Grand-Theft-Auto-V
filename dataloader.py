@@ -11,7 +11,7 @@ import torchvision
 
 class GTAV(torch.utils.data.Dataset):
 
-    def __init__(self):
+    def __init__(self, file_dir):
         pass
 
     def __getitem__(self):
