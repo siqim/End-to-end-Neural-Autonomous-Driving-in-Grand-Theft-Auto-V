@@ -81,6 +81,9 @@ def train(train_input_images, train_actions, encoder, decoder, criterion, optimi
 
 def validate(val_input_images, val_actions, encoder, decoder, criterion, config):
 
+    val_input_images = val_input_images.cuda()
+    val_actions = val_actions.cuda()
+
     encoder_outputs = encoder.forward(val_input_images, config.decoder_batch_size, config.seq_len)
     y = decoder.inference(encoder_outputs, config.init_action, config.decoder_batch_size, config.seq_len)
 
@@ -124,12 +127,12 @@ def build_data(seq_len, raw_data_dir, train_ratio, data_dir):
             if norm > 1:
                 if np.random.binomial(1, train_ratio):
                     train_counter += 1
-                    training_file_name = train_dir + 'training_data-%d.npy'%train_counter
+                    training_file_name = train_dir + 'training_data-%d.pickle'%train_counter
                     with open(training_file_name, 'wb') as f:
                         pickle.dump([screen, controller_data], f)
                 else:
                     val_counter += 1
-                    validating_file_name = val_dir + 'validating_data-%d.npy'%val_counter
+                    validating_file_name = val_dir + 'validating_data-%d.pickle'%val_counter
                     with open(validating_file_name, 'wb') as f:
                         pickle.dump([screen, controller_data], f)
         print(train_counter, val_counter)
