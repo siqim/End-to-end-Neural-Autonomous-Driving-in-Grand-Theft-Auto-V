@@ -77,7 +77,7 @@ def train(train_input_images, train_actions, encoder, decoder, criterion, optimi
     clip_grad_value_(model_paras, config.clip_value)
     optimizer.step()
 
-    return train_loss.item()
+    return y.data.cpu(), train_loss.item()
 
 def validate(val_input_images, val_actions, encoder, decoder, criterion, config):
 
@@ -89,7 +89,7 @@ def validate(val_input_images, val_actions, encoder, decoder, criterion, config)
 
     val_loss = criterion(y, val_actions)
 
-    return val_loss.item()
+    return y.data.cpu(), val_loss.item()
 
 def build_data(seq_len, raw_data_dir, train_ratio, data_dir):
 

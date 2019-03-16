@@ -20,7 +20,6 @@ class GTAV(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-
         with open(self.data_file[index], 'rb') as f:
             screen, controller_data = pickle.load(f)
 

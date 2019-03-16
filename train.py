@@ -56,7 +56,7 @@ for epoch in range(current_epoch, config.EPOCH):
     train_loss_cp = 0.0
     for train_batch_idx, (train_input_images, train_actions) in enumerate(trainloader, 1):
 
-        train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config)
+        train_pred_y, train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config)
 
         writer.add_scalar('batch/train_loss_batch', train_loss_batch, global_batch_counter)
         train_loss_cp += train_loss_batch
@@ -72,7 +72,7 @@ for epoch in range(current_epoch, config.EPOCH):
             with torch.no_grad():
                 for val_batch_idx, (val_input_images, val_actions) in enumerate(valloader, 1):
 
-                    val_loss_batch = validate(val_input_images, val_actions, encoder, decoder, criterion, config)
+                    val_pred_y, val_loss_batch = validate(val_input_images, val_actions, encoder, decoder, criterion, config)
 
                     writer.add_scalar('batch/val_loss_batch', val_loss_batch, global_batch_counter)
                     val_loss_cp += val_loss_batch
@@ -85,6 +85,7 @@ for epoch in range(current_epoch, config.EPOCH):
 
             print('Saving models...')
             save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_batch_counter, global_timer, config)
+            print('Saved!')
 
             encoder.train()
             decoder.train()
@@ -102,6 +103,7 @@ for epoch in range(current_epoch, config.EPOCH):
 
     print('Saving models...')
     save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_batch_counter, global_timer, config)
+    print('Saved!')
 
     writer.add_scalar('epoch/freeze_encoder', config.FREEZE_ENCODER, epoch)
     for idx, param_group in enumerate(optimizer.param_groups, 1):

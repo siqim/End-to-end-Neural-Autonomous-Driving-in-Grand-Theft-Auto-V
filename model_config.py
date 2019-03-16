@@ -20,7 +20,7 @@ class Config():
     ENCODER_NAME = 'xception'
     EPOCH = 10
     NUM_WORKERS = 0
-    DEBUG = True
+    DEBUG = False
 
     decoder_batch_size = 2
     seq_len = 32

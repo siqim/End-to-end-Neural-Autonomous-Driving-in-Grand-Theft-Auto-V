@@ -18,7 +18,6 @@ def pause_check():
     else:
         return False
 
-
 def grab_screen(region=None):
 
     hwin = win32gui.GetDesktopWindow()
