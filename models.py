@@ -17,10 +17,12 @@ class Encoder(nn.Module):
     def __init__(self, encoder_name='xception', freeze=1, show_feature_dims=False):
         super().__init__()
 
-        self.model = pretrainedmodels.__dict__[encoder_name](num_classes=1000, pretrained='imagenet')
         if freeze:
+            self.model = pretrainedmodels.__dict__[encoder_name](num_classes=1000, pretrained='imagenet')
             for param in self.model.parameters():
                 param.requires_grad_(requires_grad=False)
+        else:
+            self.model = pretrainedmodels.__dict__[encoder_name](num_classes=1000, pretrained=None)
 
         self.mean = self.model.mean
         self.std = self.model.std

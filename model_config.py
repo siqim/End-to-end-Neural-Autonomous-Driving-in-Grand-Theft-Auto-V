@@ -15,15 +15,15 @@ from torchvision import transforms
 
 class Config():
 
-    MODEL_NAME = 'Xception-LSTM-Jan-4'
-    FREEZE_ENCODER = 1
-    ENCODER_NAME = 'xception'
+    MODEL_NAME = 'se_resnext50_32x4d-LSTM-Apr-6'
+    FREEZE_ENCODER = 0
+    ENCODER_NAME = 'se_resnext50_32x4d'
     EPOCH = 10
     NUM_WORKERS = 0
     DEBUG = False
 
-    decoder_batch_size = 2
-    seq_len = 32
+    decoder_batch_size = 1
+    seq_len = 16
 
     decoder_dim = 512
     attention_dim = 512
@@ -90,5 +90,3 @@ class Config():
         self.valloader = torch.utils.data.DataLoader(dataset=val_set, batch_size=self.decoder_batch_size,
                                                      shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)
 
-#    def transform_2(self, image):
-#        return (cv2.resize(image, tuple(self.size)) - self.mean) / self.std

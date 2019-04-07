@@ -1,71 +1,76 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Dec 29 16:08:37 2018
+Created on Thu Apr  4 23:18:37 2019
 
 @author: msq96
 """
 
-# SOURCE: https://github.com/Sentdex/pygta5/blob/master/1.%20collect_data.py
 
-import cv2
 import time
-import numpy as np
+from deepgtav.messages import Start, Stop, Config, Dataset, Scenario
+from deepgtav.client import Client
+from utils import set_logger
 
-from xbox import XboxController
-from helper_func import pause_check, grab_screen, show_grabbed_screen, init_starting_value
+
+def reset():
+    dataset = Dataset(rate=rate, frame=frame, throttle=True, brake=True, steering=True, speed=True, drivingMode=True, location=True)
+    scenario = Scenario(weather='EXTRASUNNY', vehicle='voltic', time=[12, 0], drivingMode=[1074528293, max_speed/1.6],
+                        location=[-3000, 2500])
+    client.sendMessage(Config(scenario=scenario, dataset=dataset))
 
 
-show_screen = False
-save = False
-paused = False
+if __name__ == '__main__':
+    logger = set_logger()
 
-controller = XboxController()
-root_path = '../../data/raw_data/'
-starting_value = init_starting_value(root_path)
-training_data = []
+    host = 'localhost'
+    port = 8000
+    dataset_path = 'dataset.pz'
+    log_freq = 10 # in minute
+    max_stop_time = 10 # in second
+    max_wall_time = 10 # in hour
+    max_speed = 120 # in km
+    rate = 30 # in HZ
+    frame = [350, 205+20]
 
-for i in range(5)[::-1]:
-    time.sleep(1)
-    print(i)
-print('Start recording!')
 
-while 1:
+    logger.info('Rate %s hz, frame %s, max_stop_time %s, max_wall_time %s, max_speed %s, dataset_path %s.'
+                % (str(rate), str(frame), str(max_stop_time), str(max_wall_time), str(max_speed), str(dataset_path)))
 
-    if not paused:
-        last_time = time.time()
-        screen = grab_screen(region=(60, 25, 1280-60, 1024))
-        screen = cv2.resize(screen, (331, 331), interpolation=cv2.INTER_AREA)
+    client = Client(ip=host, port=port, datasetPath=dataset_path, compressionLevel=0)
 
-        controller_data = controller.read()
-        training_data.append([screen, controller_data])
+    dataset = Dataset(rate=rate, frame=frame, throttle=True, brake=True, steering=True, speed=True, drivingMode=True, location=True)
 
-        if show_screen:
-            show_grabbed_screen(screen)
-        left_right, down, up = controller_data
+    scenario = Scenario(weather='EXTRASUNNY', vehicle='voltic', time=[12, 0], drivingMode=[1074528293, max_speed/1.6],
+                        location=[500, 500])
 
-        # To make frames consistent during training and inferencing
-        time.sleep(0.025)
+    client.sendMessage(Start(scenario=scenario, dataset=dataset))
 
-        if save:
-            if len(training_data) % 100 == 0:
-                print(len(training_data))
+    count = 0
+    old_location = [0, 0, 0]
 
-                if len(training_data) == 2000:
-                    file_name = root_path + 'training_data-{}.npy'.format(starting_value)
-                    np.save(file_name, training_data)
-                    print('SAVED', starting_value)
-                    training_data = []
-                    starting_value += 1
+    print('Holding until receiving message...')
+    message = client.recvMessage()
+    for i in range(1, 7+1)[::-1]:
+        logger.info('Start recording in %d second(s)...'%i)
+        time.sleep(1)
 
-        print("left_right: %.2f, down: %.2f, up: %.2f" % (left_right, down, up))
-        print('loop took %.4f seconds' % (time.time()-last_time))
+    stoptime = time.time() + max_wall_time*3600
+    while time.time() < stoptime:
+        message = client.recvMessage()
 
-    if pause_check():
-        if paused:
-            paused = False
-            print('unpaused!')
-            time.sleep(1)
-        else:
-            print('Pausing!')
-            paused = True
-            time.sleep(1)
+        if count % int(log_freq*60*rate) == 0:
+            logger.info('%d frames have been saved!'%count)
+
+        if count % int(max_stop_time*rate) == 0:
+            new_location = message['location']
+
+            if int(new_location[0]) == int(old_location[0]) and int(new_location[1]) == int(old_location[1]):
+                reset()
+                logger.warning('Reseting loction! Occurred in count %d'%count)
+
+            old_location = message['location']
+        count += 1
+
+
+    client.sendMessage(Stop())
+    client.close()

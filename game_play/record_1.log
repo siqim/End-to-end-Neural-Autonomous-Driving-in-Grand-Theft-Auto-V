@@ -1,0 +1,39 @@
+2019-04-05 03:08:19,919 - logger - INFO - Rate 30 hz, frame [350, 225], max_stop_time 10, max_wall_time 10, max_speed 120, dataset_path dataset.pz.
+2019-04-05 03:08:21,388 - logger - INFO - Start recording in 7 second(s)...
+2019-04-05 03:08:22,388 - logger - INFO - Start recording in 6 second(s)...
+2019-04-05 03:08:23,389 - logger - INFO - Start recording in 5 second(s)...
+2019-04-05 03:08:24,390 - logger - INFO - Start recording in 4 second(s)...
+2019-04-05 03:08:25,390 - logger - INFO - Start recording in 3 second(s)...
+2019-04-05 03:08:26,391 - logger - INFO - Start recording in 2 second(s)...
+2019-04-05 03:08:27,392 - logger - INFO - Start recording in 1 second(s)...
+2019-04-05 03:08:28,393 - logger - INFO - 0 frames have been saved!
+2019-04-05 03:24:55,797 - logger - INFO - 18000 frames have been saved!
+2019-04-05 03:41:38,815 - logger - INFO - 36000 frames have been saved!
+2019-04-05 03:57:44,466 - logger - INFO - 54000 frames have been saved!
+2019-04-05 04:14:57,100 - logger - INFO - 72000 frames have been saved!
+2019-04-05 04:30:42,653 - logger - INFO - 90000 frames have been saved!
+2019-04-05 04:48:00,037 - logger - INFO - 108000 frames have been saved!
+2019-04-05 05:04:48,471 - logger - INFO - 126000 frames have been saved!
+2019-04-05 05:21:09,807 - logger - INFO - 144000 frames have been saved!
+2019-04-05 05:37:19,174 - logger - INFO - 162000 frames have been saved!
+2019-04-05 05:54:10,243 - logger - INFO - 180000 frames have been saved!
+2019-04-05 06:10:48,228 - logger - INFO - 198000 frames have been saved!
+2019-04-05 06:27:37,713 - logger - INFO - 216000 frames have been saved!
+2019-04-05 06:43:56,121 - logger - INFO - 234000 frames have been saved!
+2019-04-05 07:00:12,550 - logger - INFO - 252000 frames have been saved!
+2019-04-05 07:14:16,896 - logger - WARNING - Reseting loction! Occurred in count 267000
+2019-04-05 07:17:11,334 - logger - INFO - 270000 frames have been saved!
+2019-04-05 07:33:33,135 - logger - INFO - 288000 frames have been saved!
+2019-04-05 07:35:07,717 - logger - WARNING - Reseting loction! Occurred in count 289800
+2019-04-05 07:49:24,456 - logger - INFO - 306000 frames have been saved!
+2019-04-05 08:05:09,356 - logger - INFO - 324000 frames have been saved!
+2019-04-05 08:21:22,709 - logger - INFO - 342000 frames have been saved!
+2019-04-05 08:38:01,410 - logger - INFO - 360000 frames have been saved!
+2019-04-05 08:55:15,827 - logger - INFO - 378000 frames have been saved!
+2019-04-05 09:12:27,028 - logger - INFO - 396000 frames have been saved!
+2019-04-05 09:29:59,013 - logger - INFO - 414000 frames have been saved!
+2019-04-05 09:46:35,165 - logger - INFO - 432000 frames have been saved!
+2019-04-05 10:04:14,398 - logger - INFO - 450000 frames have been saved!
+2019-04-05 10:18:25,153 - logger - WARNING - Reseting loction! Occurred in count 465000
+2019-04-05 10:21:25,601 - logger - INFO - 468000 frames have been saved!
+2019-04-05 10:38:29,402 - logger - INFO - 486000 frames have been saved!
