@@ -7,7 +7,6 @@ Created on Wed Jan  2 18:44:41 2019
 
 
 import os
-import pickle
 import numpy as np
 
 import torch
@@ -90,49 +89,3 @@ def validate(val_input_images, val_actions, encoder, decoder, criterion, config)
     val_loss = criterion(y, val_actions)
 
     return y.data.cpu(), val_loss.item()
-
-def build_data(seq_len, raw_data_dir, train_ratio, data_dir):
-
-    train_dir = data_dir + 'train/'
-    val_dir = data_dir + 'val/'
-    only_straight = np.array([[0.5, 0.0, 1.0]]*seq_len)
-
-    try:
-        os.mkdir(data_dir)
-        os.mkdir(train_dir)
-        os.mkdir(val_dir)
-    except:
-        print('Folders already exist!')
-
-    raw_files = os.listdir(raw_data_dir)
-    np.random.shuffle(raw_files)
-
-    train_counter = 0
-    val_counter = 0
-
-    for raw_file in raw_files:
-        raw_data = np.load(raw_data_dir + raw_file)
-
-        batch_per_file, possible_offset = divmod(len(raw_data), seq_len)
-
-        offset = 0 if possible_offset == 0 else np.random.randint(0, possible_offset)
-
-        for i in range(batch_per_file):
-            screen, controller_data = zip(*raw_data[offset + i*seq_len: offset + (i+1)*seq_len])
-
-            screen = np.stack(screen)
-            controller_data = np.stack(controller_data)
-
-            norm = np.linalg.norm(controller_data - only_straight)
-            if norm > 1:
-                if np.random.binomial(1, train_ratio):
-                    train_counter += 1
-                    training_file_name = train_dir + 'training_data-%d.pickle'%train_counter
-                    with open(training_file_name, 'wb') as f:
-                        pickle.dump([screen, controller_data], f)
-                else:
-                    val_counter += 1
-                    validating_file_name = val_dir + 'validating_data-%d.pickle'%val_counter
-                    with open(validating_file_name, 'wb') as f:
-                        pickle.dump([screen, controller_data], f)
-        print(train_counter, val_counter)

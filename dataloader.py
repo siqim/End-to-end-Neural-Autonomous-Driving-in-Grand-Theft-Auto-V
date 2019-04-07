@@ -5,33 +5,42 @@ Created on Wed Jan  2 17:26:25 2019
 @author: msq96
 """
 
+
 import os
 import gzip
 import pickle
-import numpy as np
 
 import torch
 import torchvision
 
+
 class GTAV(torch.utils.data.Dataset):
 
-    def __init__(self, data_dir='./data/', datatype='train', bin_fname='y_bin.pickle'):
+    def __init__(self, data_dir='./data/', datatype='train', bin_fname='y_bin_info.pickle'):
 
         data_fp = data_dir + datatype + '/'
         y_bin_fname = data_dir + bin_fname
 
         with open(y_bin_fname, 'rb') as fin:
             y_bin = pickle.load(fin)
-            for k, v in y_bin.items():
-                y_bin[k] = [{'min': np.min(each_bin), 'mean': np.mean(each_bin), 'max': np.max(each_bin)} for each_bin in v]
-                temp = []
-                for each in y_bin[k]:
-                    if each not in temp:
-                        temp.append(each)
-                y_bin[k] = temp
 
         self.data_file = [data_fp + each for each in os.listdir(data_fp)]
         self.y_bin = y_bin
+
+        # [max_throttle, no_brake, go_straight, zero_speed]
+        self.init_y = {}
+        for key in y_bin.keys():
+            if key == 'throttle':
+                self.init_y[key] = torch.LongTensor([[len(y_bin['throttle']) - 1]])
+            elif key == 'brake':
+                self.init_y[key] = torch.LongTensor([[0]])
+            elif key == 'steering':
+                self.init_y[key] = torch.LongTensor([[len(y_bin['steering'])//2]])
+            elif key == 'speed':
+                self.init_y[key] = torch.LongTensor([[0]])
+
+        self.y_keys_info = {k:len(v) for k, v in self.y_bin.items()}
+
 
     def __getitem__(self, index):
 

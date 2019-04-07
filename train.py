@@ -20,15 +20,14 @@ from models import Encoder, Decoder
 config = Config()
 
 print('Initializing models...')
-encoder = Encoder(encoder_name=config.ENCODER_NAME, freeze=config.FREEZE_ENCODER, show_feature_dims=True)
+encoder = Encoder(encoder_name=config.ENCODER_NAME, show_feature_dims=True)
 decoder = Decoder(encoder_dim=encoder.encoder_dim, decoder_dim=config.decoder_dim, attention_dim=config.attention_dim,
-                  num_loc=encoder.num_loc, num_actions=config.num_actions, num_layers=config.num_layers, dropout_prob=config.dropout_prob)
+                  num_loc=encoder.num_loc, dropout_prob=config.dropout_prob)
 encoder.cuda()
 decoder.cuda()
 
 
 print('Initializing datasets...')
-config.init_data_loaders(input_size=encoder.input_size, mean=encoder.mean, std=encoder.std)
 trainloader = config.trainloader
 valloader = config.valloader
 

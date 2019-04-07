@@ -122,6 +122,24 @@ def split_train_val():
         else:
             os.rename(data_dir + each_data, data_dir + 'val/' + each_data)
 
+def save_bins_info():
+
+    y_bin_fname = data_dir + 'y_bin.pickle'
+    with open(y_bin_fname, 'rb') as fin:
+        y_bin = pickle.load(fin)
+        for k, v in y_bin.items():
+            y_bin[k] = [{'min': np.min(each_bin), 'mean': np.mean(each_bin), 'max': np.max(each_bin)} for each_bin in v]
+            temp = []
+            for each in y_bin[k]:
+                if each not in temp:
+                    temp.append(each)
+            y_bin[k] = temp
+
+    y_bin_info_fname = data_dir + 'y_bin_info.pickle'
+    with open(y_bin_info_fname, 'wb') as fout:
+        pickle.dump(y_bin, fout)
+
+
 if __name__ == '__main__':
 
     data_dir = '../data/'
@@ -149,5 +167,5 @@ if __name__ == '__main__':
 
 #    split_dataset()
 #    split_train_val()
-
+#    save_bins_info()
 

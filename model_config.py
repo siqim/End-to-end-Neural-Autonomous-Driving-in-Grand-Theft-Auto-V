@@ -1,35 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan  2 18:06:14 2019
+Created on Sat Apr  6 22:52:45 2019
 
 @author: msq96
 """
 
 
-import os
+
 import torch
-from utils import try_mkdir, build_data
+from utils import try_mkdir
 from dataloader import GTAV
-from torchvision import transforms
 
 
-class Config():
+class Config(object):
 
     MODEL_NAME = 'se_resnext50_32x4d-LSTM-Apr-6'
-    FREEZE_ENCODER = 0
     ENCODER_NAME = 'se_resnext50_32x4d'
     EPOCH = 10
     NUM_WORKERS = 0
     DEBUG = False
 
+    num_layers = 1
     decoder_batch_size = 1
     seq_len = 16
 
     decoder_dim = 512
     attention_dim = 512
-
-    num_actions = 3
-    num_layers = 2
 
     clip_value = 5.0
     dropout_prob = 0.5
@@ -39,18 +35,10 @@ class Config():
 
     check_point = 300
 
-    model_dir = '../models/%s/' % MODEL_NAME
+    data_dir = './data/'
+    model_dir = './models/%s/' % MODEL_NAME
     params_dir = model_dir + 'params/'
     logs_dir = model_dir + 'logs/'
-    data_dir = '../data/processed_data/seq_len_%d/' % seq_len
-    raw_data_dir = '../data/raw_data/'
-    train_ratio = 0.8
-
-
-    train_fp = data_dir + 'train/'
-    val_fp = data_dir + 'val/'
-
-    init_action = torch.FloatTensor([[0.5, 0.0, 0.0]]*decoder_batch_size)
 
     def __init__(self):
 
@@ -58,35 +46,20 @@ class Config():
         try_mkdir(self.params_dir)
         try_mkdir(self.logs_dir)
 
+        self._init_data_loaders()
+
         if self.DEBUG:
             self.check_point = 1
 
-    def init_data_loaders(self, input_size, mean, std):
+    def _init_data_loaders(self):
 
-        if not os.listdir(self.train_fp):
-            print('Building training data...')
-            build_data(self.seq_len, self.raw_data_dir, self.train_ratio, self.data_dir)
-        else:
-            print('Data has been built!')
-
-        self.size = input_size[1:]
-        self.mean = mean
-        self.std = std
-        assert self.size[0] == self.size[1] and len(self.size) == 2
-
-        transform = transforms.Compose([
-                        transforms.ToPILImage(),
-                        transforms.Resize(self.size),
-                        transforms.ToTensor(),
-                        transforms.Normalize(mean=self.mean, std=self.std)
-                        ])
-
-        train_set = GTAV(self.train_fp, transform)
-        val_set = GTAV(self.val_fp, transform)
+        train_set = GTAV(data_dir=self.data_dir, datatype='train', bin_fname='y_bin.pickle')
+        val_set = GTAV(data_dir=self.data_dir, datatype='val', bin_fname='y_bin.pickle')
+        self.init_y = torch.FloatTensor([train_set.init_y]*self.decoder_batch_size)
+        self.y_keys_info = train_set.y_keys_info
 
         self.trainloader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.decoder_batch_size,
                                                        shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)
 
         self.valloader = torch.utils.data.DataLoader(dataset=val_set, batch_size=self.decoder_batch_size,
                                                      shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)
-
