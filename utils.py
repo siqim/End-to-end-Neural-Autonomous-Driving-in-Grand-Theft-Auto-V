@@ -7,6 +7,7 @@ Created on Wed Jan  2 18:44:41 2019
 
 
 import os
+import time
 import numpy as np
 
 import torch
@@ -62,30 +63,52 @@ def load_model_optimizer(encoder, decoder, optimizer, scheduler, config):
 
 def train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config):
 
-    train_input_images = train_input_images.cuda()
-    train_actions = train_actions.cuda()
+    times = int(train_input_images.shape[1] / config.seq_len)
 
-    encoder_outputs = encoder.forward(train_input_images, config.decoder_batch_size, config.seq_len)
-    y = decoder.forward(encoder_outputs, train_actions, config.decoder_batch_size, config.seq_len)
+    train_loss = 0
 
-    train_loss = criterion(y, train_actions)
+    for i in range(times):
+        train_input_image_seq = train_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
+        train_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
+                            for action, values in train_actions.items()}
 
-    optimizer.zero_grad()
-    train_loss.backward()
+        encoder.zero_grad()
+        decoder.zero_grad()
+        encoder_outputs = encoder.forward(train_input_image_seq, config.decoder_batch_size, config.seq_len)
+        y = decoder.forward(encoder_outputs, train_action_seq, config.decoder_batch_size, config.seq_len)
 
-    clip_grad_value_(model_paras, config.clip_value)
-    optimizer.step()
+        losses = []
+        for action in config.y_keys_info.keys():
+            losses.append(criterion(y[action], train_action_seq[action][:, 1:]))
+        total_loss = sum(losses)
+        total_loss.backward()
 
-    return y.data.cpu(), train_loss.item()
+        train_loss += total_loss.item()
+
+        clip_grad_value_(model_paras, config.clip_value)
+        optimizer.step()
+
+    return train_loss/times
 
 def validate(val_input_images, val_actions, encoder, decoder, criterion, config):
 
-    val_input_images = val_input_images.cuda()
-    val_actions = val_actions.cuda()
+    times = int(val_input_images.shape[1] / config.seq_len)
 
-    encoder_outputs = encoder.forward(val_input_images, config.decoder_batch_size, config.seq_len)
-    y = decoder.inference(encoder_outputs, config.init_action, config.decoder_batch_size, config.seq_len)
+    val_loss = 0
 
-    val_loss = criterion(y, val_actions)
+    for i in range(times):
+        val_input_image_seq = val_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
+        val_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
+                            for action, values in val_actions.items()}
 
-    return y.data.cpu(), val_loss.item()
+        encoder_outputs = encoder.forward(val_input_image_seq, config.decoder_batch_size, config.seq_len)
+        y = decoder.validate(encoder_outputs, config.init_y, config.decoder_batch_size, config.seq_len)
+
+        losses = []
+        for action in config.y_keys_info.keys():
+            losses.append(criterion(y[action], val_action_seq[action][:, 1:]))
+        total_loss = sum(losses)
+
+        val_loss += total_loss.item()
+
+    return val_loss/times

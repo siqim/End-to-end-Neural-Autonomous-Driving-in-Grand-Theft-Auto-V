@@ -7,6 +7,7 @@ Created on Wed Jan  2 17:06:17 2019
 
 
 import time
+from tqdm import tqdm
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -16,13 +17,14 @@ from model_config import Config
 from utils import save_model_optimizer, load_model_optimizer, train, validate
 from models import Encoder, Decoder
 
-
+print('Initializing configuration...')
 config = Config()
 
 print('Initializing models...')
 encoder = Encoder(encoder_name=config.ENCODER_NAME, show_feature_dims=True)
 decoder = Decoder(encoder_dim=encoder.encoder_dim, decoder_dim=config.decoder_dim, attention_dim=config.attention_dim,
-                  num_loc=encoder.num_loc, dropout_prob=config.dropout_prob)
+                  action_dim=config.action_dim, num_loc=encoder.num_loc, y_keys_info=config.y_keys_info, num_layers=config.num_layers,
+                  dropout_prob=config.dropout_prob)
 encoder.cuda()
 decoder.cuda()
 
@@ -45,7 +47,7 @@ print('Loading parameters...')
 encoder, decoder, optimizer, scheduler, current_epoch, global_batch_counter, global_timer = load_model_optimizer(encoder, decoder, optimizer, scheduler, config)
 
 
-criterion = torch.nn.MSELoss()
+criterion = torch.nn.CrossEntropyLoss()
 writer = SummaryWriter(config.logs_dir)
 for epoch in range(current_epoch, config.EPOCH):
     print('[%d] epoch starts training...'%epoch)
@@ -53,15 +55,15 @@ for epoch in range(current_epoch, config.EPOCH):
 
 
     train_loss_cp = 0.0
-    for train_batch_idx, (train_input_images, train_actions) in enumerate(trainloader, 1):
+    for train_batch_idx, (train_input_images, train_actions) in enumerate(tqdm(trainloader), 1):
 
-        train_pred_y, train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config)
+        train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config)
 
         writer.add_scalar('batch/train_loss_batch', train_loss_batch, global_batch_counter)
         train_loss_cp += train_loss_batch
         global_batch_counter += 1
 
-        if global_batch_counter % config.check_point == 0:
+        if global_batch_counter % config.check_point == 0 or config.DEBUG:
 
             print('Start validating...')
             encoder.eval()
@@ -71,7 +73,7 @@ for epoch in range(current_epoch, config.EPOCH):
             with torch.no_grad():
                 for val_batch_idx, (val_input_images, val_actions) in enumerate(valloader, 1):
 
-                    val_pred_y, val_loss_batch = validate(val_input_images, val_actions, encoder, decoder, criterion, config)
+                    val_loss_batch = validate(val_input_images, val_actions, encoder, decoder, criterion, config)
 
                     writer.add_scalar('batch/val_loss_batch', val_loss_batch, global_batch_counter)
                     val_loss_cp += val_loss_batch
@@ -104,7 +106,6 @@ for epoch in range(current_epoch, config.EPOCH):
     save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_batch_counter, global_timer, config)
     print('Saved!')
 
-    writer.add_scalar('epoch/freeze_encoder', config.FREEZE_ENCODER, epoch)
     for idx, param_group in enumerate(optimizer.param_groups, 1):
         writer.add_scalar('epoch/lr_%d'%idx, param_group['lr'], epoch)
 

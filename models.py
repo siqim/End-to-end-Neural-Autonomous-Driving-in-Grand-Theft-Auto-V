@@ -14,9 +14,7 @@ import torch.nn as nn
 import pretrainedmodels
 
 
-# TODO: Support changing seq_len
 # TODO: clean docs and check flow again
-
 class Encoder(nn.Module):
 
     def __init__(self, encoder_name, show_feature_dims=False, data_dir='./data/'):
@@ -218,56 +216,56 @@ class Decoder(nn.Module):
 
         return y
 
-#    def forward(self, encoder_outputs, init_action, decoder_batch_size, seq_len):
-#        """
-#        Decoder forward.
-#
-#        Params:
-#            encoder_outputs: Output features from encoder with size: decoder_batch_size x seq_len x num_loc x encoder_dim
-#            actions: dict
-#                     Note that actions[:, 0, :] should be the init_action to start decoder forward process
-#
-#        Returns:
-#            y: Predicted actions from decoder with size: decoder_batch_size x seq_len x num_actions
-#        """
-#
-#        encoder_atts = self.att_model.generate_encoder_atts(encoder_outputs)  # decoder_batch_size x seq_len x num_loc x attention_dim
-#
-#        # decoder_batch_size x 1 x (action_dim * num_actions)
-#        actions_embs = torch.stack([self.emb_layer[action](init_action[action].cuda()) for action in self.y_keys_info.keys()], dim=3)
-#        actions_embs = actions_embs.view(decoder_batch_size, 1, -1)
-#
-#        y = {}
-#        for action, num_class in self.y_keys_info.items():
-#            y[action] = torch.zeros((decoder_batch_size, num_class, seq_len)).cuda()
-#
-#        decoder_state = self._init_state(decoder_batch_size)
-#
-#        # do not do seq_len + 1 since we do not need last y
-#        for i in range(seq_len):
-#
-#            # (decoder_batch_size x num_loc x 1, decoder_batch_size x encoder_dim)
-#            alpha, attention_output = self.att_model.forward(encoder_outputs[:, i], encoder_atts[:, i], decoder_state[0])
-#
-#            # decoder_batch_size x 1 x (encoder_dim + num_actions)
-#            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
-#            decoder_input = torch.cat((attention_output, actions_embs[:, 0]), dim=1).unsqueeze(1)
-#
-#            # (decoder_batch_size x 1 x decoder_dim, (num_layers x decoder_batch_size x decoder_dim)*2)
-#            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
-#            output, decoder_state = self.lstm(decoder_input, decoder_state)
-#
-#            y_pred = {}
-#            for action in self.y_keys_info.keys():
-#                logits = self.fc_output[action](output.squeeze(1)) # decoder_batch_size x num_class
-#
-#                _, y_pred[action] = logits.max(dim=1, keepdim=True)
-#                y[action][:, :, i] = logits
-#
-#            actions_embs = torch.stack([self.emb_layer[action](y_pred[action].cuda()) for action in self.y_keys_info.keys()], dim=3)
-#            actions_embs = actions_embs.view(decoder_batch_size, 1, -1)
-#
-#        return y
+    def validate(self, encoder_outputs, init_action, decoder_batch_size, seq_len):
+        """
+        Decoder forward.
+
+        Params:
+            encoder_outputs: Output features from encoder with size: decoder_batch_size x seq_len x num_loc x encoder_dim
+            actions: dict
+                     Note that actions[:, 0, :] should be the init_action to start decoder forward process
+
+        Returns:
+            y: Predicted actions from decoder with size: decoder_batch_size x seq_len x num_actions
+        """
+
+        encoder_atts = self.att_model.generate_encoder_atts(encoder_outputs)  # decoder_batch_size x seq_len x num_loc x attention_dim
+
+        # decoder_batch_size x 1 x (action_dim * num_actions)
+        actions_embs = torch.stack([self.emb_layer[action](init_action[action].cuda()) for action in self.y_keys_info.keys()], dim=3)
+        actions_embs = actions_embs.view(decoder_batch_size, 1, -1)
+
+        y = {}
+        for action, num_class in self.y_keys_info.items():
+            y[action] = torch.zeros((decoder_batch_size, num_class, seq_len)).cuda()
+
+        decoder_state = self._init_state(decoder_batch_size)
+
+        # do not do seq_len + 1 since we do not need last y
+        for i in range(seq_len):
+
+            # (decoder_batch_size x num_loc x 1, decoder_batch_size x encoder_dim)
+            alpha, attention_output = self.att_model.forward(encoder_outputs[:, i], encoder_atts[:, i], decoder_state[0])
+
+            # decoder_batch_size x 1 x (encoder_dim + num_actions)
+            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
+            decoder_input = torch.cat((attention_output, actions_embs[:, 0]), dim=1).unsqueeze(1)
+
+            # (decoder_batch_size x 1 x decoder_dim, (num_layers x decoder_batch_size x decoder_dim)*2)
+            # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
+            output, decoder_state = self.lstm(decoder_input, decoder_state)
+
+            y_pred = {}
+            for action in self.y_keys_info.keys():
+                logits = self.fc_output[action](output.squeeze(1)) # decoder_batch_size x num_class
+
+                _, y_pred[action] = logits.max(dim=1, keepdim=True)
+                y[action][:, :, i] = logits
+
+            actions_embs = torch.stack([self.emb_layer[action](y_pred[action].cuda()) for action in self.y_keys_info.keys()], dim=3)
+            actions_embs = actions_embs.view(decoder_batch_size, 1, -1)
+
+        return y
 
     def inference(self, encoder_output, prev_action, decoder_state):
         """
