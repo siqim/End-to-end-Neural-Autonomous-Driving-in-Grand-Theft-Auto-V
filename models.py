@@ -15,6 +15,9 @@ import pretrainedmodels
 
 
 # TODO: clean docs and check flow again
+# TODO: scheduled sampling
+# TODO: weighted cross entropy loss
+
 class Encoder(nn.Module):
 
     def __init__(self, encoder_name, show_feature_dims=False, data_dir='./data/'):
@@ -50,8 +53,8 @@ class Encoder(nn.Module):
         """
 
         # (decoder_batch_size x seq_len) x encoder_dim x feature_width x feature_height
-        x = self.model.features(x.view(-1, x.size(2), x.size(3), x.size(4)))
-        encoder_outputs = x.view(decoder_batch_size, seq_len, x.size(1), -1).transpose(2, 3)
+        t = self.model.features(x.view(-1, x.size(2), x.size(3), x.size(4)))
+        encoder_outputs = t.view(decoder_batch_size, seq_len, t.size(1), -1).transpose(2, 3)
         return encoder_outputs
 
     def inference(self, x):
@@ -61,10 +64,9 @@ class Encoder(nn.Module):
             x: 1 x num_channels x height x width
         """
 
-        x = self.model.features(x)
-        encoder_outputs = x.view(1, x.size(1), -1).transpose(1, 2)
+        t = self.model.features(x)
+        encoder_outputs = t.view(1, t.size(1), -1).transpose(1, 2)
         return encoder_outputs
-
 
 
 class Attention(nn.Module):
@@ -384,6 +386,7 @@ if __name__ == '__main__':
         input_images = input_images[0, :].cuda()
         actions = {action: values[0, :].cuda() for action, values in actions.items()}
 
+    with torch.no_grad():
         actions_pred = {action: [] for action in y_keys_info.keys()}
         for i in range(input_images.size(0)):
             s = time.time()

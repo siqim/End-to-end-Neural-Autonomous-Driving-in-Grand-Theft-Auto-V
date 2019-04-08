@@ -10,8 +10,10 @@ import os
 import time
 import numpy as np
 
+
 import torch
 from torch.nn.utils.clip_grad import clip_grad_value_
+
 
 
 def try_mkdir(path):
@@ -88,15 +90,24 @@ def train(train_input_images, train_actions, encoder, decoder, criterion, optimi
         clip_grad_value_(model_paras, config.clip_value)
         optimizer.step()
 
+        accuracy = {}
+        for action in config.y_keys_info.keys():
+            _, y_pred = y[action].max(dim=1)
+            accuracy[action] = (y_pred == train_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
+        print(accuracy)
+
     return train_loss/times
 
 def validate(val_input_images, val_actions, encoder, decoder, criterion, config):
+    encoder.eval()
+    decoder.eval()
 
     times = int(val_input_images.shape[1] / config.seq_len)
 
     val_loss = 0
 
     for i in range(times):
+#    with torch.no_grad():
         val_input_image_seq = val_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
         val_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
                             for action, values in val_actions.items()}
@@ -111,4 +122,35 @@ def validate(val_input_images, val_actions, encoder, decoder, criterion, config)
 
         val_loss += total_loss.item()
 
+        accuracy = {}
+        y_pred = {}
+        for action in config.y_keys_info.keys():
+            _, y_pred[action] = y[action].max(dim=1)
+            accuracy[action] = (y_pred[action] == val_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
+        print(accuracy)
+
     return val_loss/times
+
+def get_models():
+
+    from models import Encoder, Decoder
+    from model_config import Config
+
+    print('Initializing configuration...')
+    config = Config()
+
+    print('Initializing models...')
+    encoder = Encoder(encoder_name=config.ENCODER_NAME, show_feature_dims=True)
+    decoder = Decoder(encoder_dim=encoder.encoder_dim, decoder_dim=config.decoder_dim, attention_dim=config.attention_dim,
+                      action_dim=config.action_dim, num_loc=encoder.num_loc, y_keys_info=config.y_keys_info, num_layers=config.num_layers,
+                      dropout_prob=config.dropout_prob)
+    encoder.cuda()
+    decoder.cuda()
+
+    params_list = os.listdir(config.params_dir)
+    states = load_lastest_states(config.params_dir, params_list)
+
+    encoder.load_state_dict(states['encoder'])
+    decoder.load_state_dict(states['decoder'])
+
+    return encoder, decoder, config.init_y
