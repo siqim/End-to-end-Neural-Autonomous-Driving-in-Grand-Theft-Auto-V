@@ -14,8 +14,8 @@ import torch.nn as nn
 import pretrainedmodels
 
 
-# TODO: fix bug caused by .view()
 # TODO: Support changing seq_len
+# TODO: clean docs and check flow again
 class Encoder(nn.Module):
 
     def __init__(self, encoder_name, show_feature_dims=False, data_dir='./data/'):
@@ -42,17 +42,17 @@ class Encoder(nn.Module):
         Encoder forward.
 
         Params:
-            x: Input images with size: decoder_batch_size x seq_len x num_channels x width x height
-                                      (decoder_batch_size x seq_len x 3 x 299 x 299 if use xception)
+            x: Input images with size: decoder_batch_size x seq_len x num_channels x height x width
+                                      (decoder_batch_size x seq_len x 3 x 205 x 350 if use xception)
 
         Returns:
             encoder_outputs: Output features with size: decoder_batch_size x seq_len x num_loc x encoder_dim
-                                                       (decoder_batch_size x seq_len x (10x10) x 2048 if use xception)
+                                                       (decoder_batch_size x seq_len x (7x11) x 2048 if use xception)
         """
 
         # (decoder_batch_size x seq_len) x encoder_dim x feature_width x feature_height
         x = self.model.features(x.view(-1, x.size(2), x.size(3), x.size(4)))
-        encoder_outputs = x.view(decoder_batch_size, seq_len, -1, x.size(1))
+        encoder_outputs = x.view(decoder_batch_size, seq_len, x.size(1), -1).transpose(2, 3)
         return encoder_outputs
 
 
@@ -134,7 +134,8 @@ class Decoder(nn.Module):
 
         self.emb_layer = {}
         for action, num_class in y_keys_info.items():
-            self.emb_layer[action] = nn.Embedding(num_class, action_dim).cuda()
+            self.emb_layer[action] = nn.Embedding(num_class, action_dim)
+            self.add_module(name='emb_layer_%s'%action, module=self.emb_layer[action])
 
         self.lstm = nn.LSTM(
                 input_size = encoder_dim + len(y_keys_info)*action_dim,
@@ -151,7 +152,8 @@ class Decoder(nn.Module):
                                             nn.Dropout(p=dropout_prob),
 
                                             nn.Linear(decoder_dim, num_class)
-                                            ).cuda()
+                                            )
+            self.add_module(name='fc_output_%s'%action, module=self.fc_output[action])
 
     def _init_state(self, decoder_batch_size):
         h_0 = torch.zeros([self.num_layers, decoder_batch_size, self.decoder_dim]).cuda()
@@ -175,7 +177,8 @@ class Decoder(nn.Module):
         encoder_atts = self.att_model.generate_encoder_atts(encoder_outputs)  # decoder_batch_size x seq_len x num_loc x attention_dim
 
         # decoder_batch_size x (seq_len + 1) x (action_dim * num_actions)
-        actions_embs = torch.stack([self.emb_layer[action](actions[action]) for action in self.y_keys_info.keys()]).view(decoder_batch_size, seq_len+1, -1)
+        actions_embs = torch.stack([self.emb_layer[action](actions[action]) for action in self.y_keys_info.keys()], dim=3)
+        actions_embs = actions_embs.view(decoder_batch_size, seq_len+1, -1)
 
         y = {}
         for action, num_class in self.y_keys_info.items():
@@ -244,20 +247,16 @@ if __name__ == '__main__':
     import numpy as np
     from dataloader import GTAV
 
-    seq_len, decoder_batch_size, num_layers = 16, 1, 1
+    seq_len, decoder_batch_size, num_layers = 8, 2, 1
     decoder_dim, attention_dim, action_dim = 512, 512, 50
     lr = 4e-4
 
-    train_set = GTAV(data_dir='./data/', datatype='train', bin_fname='y_bin_info.pickle')
+    train_set = GTAV(data_dir='./data/', datatype='train', batch_size=decoder_batch_size)
     trainloader = torch.utils.data.DataLoader(dataset=train_set, batch_size=decoder_batch_size,
                                               shuffle=True, drop_last=True, num_workers=0)
 
     init_y = train_set.init_y
     y_keys_info = train_set.y_keys_info
-    input_images, actions = next(iter(trainloader))
-    input_images = input_images[:decoder_batch_size, :seq_len].cuda()
-    actions = {action: torch.cat((init_y[action], values[:decoder_batch_size, :seq_len]), dim=1).cuda() for action, values in actions.items()}
-
 
 
     encoder = Encoder(encoder_name='xception', show_feature_dims=True)
@@ -279,6 +278,10 @@ if __name__ == '__main__':
     for i in range(10):
         s = time.time()
 
+        input_images, actions = next(iter(trainloader))
+        input_images = input_images[:decoder_batch_size, :seq_len].cuda()
+        actions = {action: torch.cat((init_y[action], values[:decoder_batch_size, :seq_len]), dim=1).cuda() for action, values in actions.items()}
+
         encoder.zero_grad()
         decoder.zero_grad()
         encoder_outputs = encoder.forward(input_images, decoder_batch_size, seq_len)
@@ -289,11 +292,12 @@ if __name__ == '__main__':
             losses.append(criterion(y[action], actions[action][:decoder_batch_size, 1:]))
         total_loss = sum(losses)
         total_loss.backward()
+        print(total_loss.item())
 
         optimizer.step()
 
         e = time.time()
-        print(e-s)
+#        print(e-s)
         time_used.append(e-s)
     print('----------------')
     print(np.mean(time_used[1:]))
