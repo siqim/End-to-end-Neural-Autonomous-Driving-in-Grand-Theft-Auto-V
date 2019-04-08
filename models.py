@@ -8,6 +8,7 @@ Created on Sun Dec 30 13:31:11 2018
 
 import gzip
 import pickle
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -174,7 +175,7 @@ class Decoder(nn.Module):
 
         return (h_0, c_0)
 
-    def forward(self, encoder_outputs, actions, decoder_batch_size, seq_len):
+    def forward(self, encoder_outputs, actions, decoder_batch_size, seq_len, sampling_prob):
         """
         Decoder forward.
 
@@ -213,8 +214,17 @@ class Decoder(nn.Module):
             # 1 means sequence length for decoder; since we have a for loop, seq_len here = 1
             output, decoder_state = self.lstm(decoder_input, decoder_state)
 
+            y_pred = {}
             for action in self.y_keys_info.keys():
-                y[action][:, :, i] = self.fc_output[action](output.squeeze(1))
+                logits = self.fc_output[action](output.squeeze(1)) # decoder_batch_size x num_class
+                _, y_pred[action] = logits.max(dim=1, keepdim=True)
+
+                y[action][:, :, i] = logits
+
+            if np.random.binomial(1, sampling_prob):
+                actions_embs[:, i+1] = torch.stack([self.emb_layer[action](y_pred[action].cuda()) for action in self.y_keys_info.keys()],
+                                                   dim=3).view(decoder_batch_size, 1, -1)
+
 
         return y
 
