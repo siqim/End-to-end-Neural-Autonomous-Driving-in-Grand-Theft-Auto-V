@@ -45,7 +45,7 @@ class GTAV(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-        with gzip.open(self.data_file[0], 'rb') as f:
+        with gzip.open(self.data_file[index], 'rb') as f:
             x_raw_y_dict = pickle.load(f)
 
         y = {}
