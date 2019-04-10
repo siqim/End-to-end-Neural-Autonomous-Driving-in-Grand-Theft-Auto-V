@@ -47,9 +47,9 @@ if __name__ == '__main__':
     client.sendMessage(Start(scenario=scenario))
 
     with torch.no_grad():
-#        encoder.eval()
-#        decoder.eval()
-        input_action = {k: v[0,:].cuda() for k,v in init_y.items()}
+        encoder.eval()
+        decoder.eval()
+        input_action = {k: v[0,:].cuda() for k, v in init_y.items()}
         decoder_state = decoder._init_state(1)
 
         stoptime = time.time() + max_wall_time*3600
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             input_action, decoder_state = decoder.inference(encoder_output, input_action, decoder_state)
 
             commands = [y_bin['throttle'][input_action['throttle'].item()]['mean'],
-                        y_bin['brake'][input_action['brake'].item()]['mean'],
+                        0,
                         y_bin['steering'][input_action['steering'].item()]['mean']]
             print(commands)
 

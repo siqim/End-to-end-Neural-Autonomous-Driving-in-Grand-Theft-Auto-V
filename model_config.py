@@ -55,6 +55,7 @@ class Config(object):
         val_set = GTAV(data_dir=self.data_dir, datatype='val', batch_size=self.decoder_batch_size)
         self.init_y = train_set.init_y
         self.y_keys_info = train_set.y_keys_info
+        self.weight_info = train_set.weight_info
 
         self.trainloader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.decoder_batch_size,
                                                        shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)

@@ -28,19 +28,19 @@ class GTAV(torch.utils.data.Dataset):
         self.data_file = [data_fp + each for each in os.listdir(data_fp)]
         self.y_bin = y_bin
 
-        # [max_throttle, no_brake, go_straight, zero_speed]
+        # [max_throttle, go_straight, zero_speed]
         self.init_y = {}
         for key in y_bin.keys():
             if key == 'throttle':
                 self.init_y[key] = torch.LongTensor([[len(y_bin['throttle']) - 1]]*batch_size)
-            elif key == 'brake':
-                self.init_y[key] = torch.LongTensor([[0]]*batch_size)
             elif key == 'steering':
                 self.init_y[key] = torch.LongTensor([[len(y_bin['steering'])//2]]*batch_size)
             elif key == 'speed':
                 self.init_y[key] = torch.LongTensor([[0]]*batch_size)
 
-        self.y_keys_info = {k:len(v) for k, v in self.y_bin.items()}
+        self.y_keys_info = {k:len(v) for k, v in self.y_bin.items() if k != 'brake'}
+
+        self.weight_info = {k: [1/each['num_samples'] for each in v]  for k, v in self.y_bin.items() if k!='brake'}
 
 
     def __getitem__(self, index):
@@ -52,15 +52,15 @@ class GTAV(torch.utils.data.Dataset):
         for k, v in x_raw_y_dict.items():
             if k == 'frame':
                 x = v
-            else:
-                # Performance bottleneck
+            elif k != 'brake':
+                # Performance no good
                 y[k] = torch.zeros_like(v, dtype=torch.int64)
                 for i in range(v.shape[0]):
                     for idx, each_bin in enumerate(self.y_bin[k], 0):
                         if each_bin['min'] <= v[i] <= each_bin['max']:
                             y[k][i] = idx
                             break
-                # Performance bottleneck
+                # Performance no good
 
         return x, y
 

@@ -223,9 +223,7 @@ class Decoder(nn.Module):
 
             if np.random.binomial(1, sampling_prob):
                 actions_embs[:, i+1] = torch.stack([self.emb_layer[action](y_pred[action].cuda()) for action in self.y_keys_info.keys()],
-                                                   dim=3).view(decoder_batch_size, 1, -1)
-
-
+                                                   dim=3).view(decoder_batch_size, -1)
         return y
 
     def validate(self, encoder_outputs, init_action, decoder_batch_size, seq_len):

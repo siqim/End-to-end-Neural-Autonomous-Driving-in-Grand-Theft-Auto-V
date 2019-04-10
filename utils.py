@@ -63,12 +63,11 @@ def load_model_optimizer(encoder, decoder, optimizer, scheduler, config):
     else:
         return encoder, decoder, optimizer, scheduler, 1, 0, 0
 
-def train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config):
+def train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config, sampling_prob):
 
     times = int(train_input_images.shape[1] / config.seq_len)
 
     train_loss = 0
-
     for i in range(times):
         train_input_image_seq = train_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
         train_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
@@ -77,11 +76,11 @@ def train(train_input_images, train_actions, encoder, decoder, criterion, optimi
         encoder.zero_grad()
         decoder.zero_grad()
         encoder_outputs = encoder.forward(train_input_image_seq, config.decoder_batch_size, config.seq_len)
-        y = decoder.forward(encoder_outputs, train_action_seq, config.decoder_batch_size, config.seq_len)
+        y = decoder.forward(encoder_outputs, train_action_seq, config.decoder_batch_size, config.seq_len, sampling_prob)
 
         losses = []
         for action in config.y_keys_info.keys():
-            losses.append(criterion(y[action], train_action_seq[action][:, 1:]))
+            losses.append(criterion[action](y[action], train_action_seq[action][:, 1:]))
         total_loss = sum(losses)
         total_loss.backward()
 
@@ -117,17 +116,17 @@ def validate(val_input_images, val_actions, encoder, decoder, criterion, config)
 
         losses = []
         for action in config.y_keys_info.keys():
-            losses.append(criterion(y[action], val_action_seq[action][:, 1:]))
+            losses.append(criterion[action](y[action], val_action_seq[action][:, 1:]))
         total_loss = sum(losses)
 
         val_loss += total_loss.item()
 
-        accuracy = {}
-        y_pred = {}
-        for action in config.y_keys_info.keys():
-            _, y_pred[action] = y[action].max(dim=1)
-            accuracy[action] = (y_pred[action] == val_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
-        print(accuracy)
+#        accuracy = {}
+#        y_pred = {}
+#        for action in config.y_keys_info.keys():
+#            _, y_pred[action] = y[action].max(dim=1)
+#            accuracy[action] = (y_pred[action] == val_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
+#        print(accuracy)
 
     return val_loss/times
 

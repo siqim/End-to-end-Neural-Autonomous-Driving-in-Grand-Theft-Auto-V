@@ -76,6 +76,36 @@ def find_even_bins(num_class):
     return all_bins
 
 
+def find_linear_bins(num_class):
+    with open(data_dir + 'y_raw.pickle', 'rb') as fin:
+        raw_y = pickle.load(fin)
+
+    all_bins = {'throttle': [], 'brake': [], 'steering': [], 'speed': []}
+    all_bins_info = {'throttle': [], 'brake': [], 'steering': [], 'speed': []}
+    for key, value in raw_y.items():
+        max_v = np.max(value)
+        min_v = np.min(value)
+
+        value_range_one_class = (max_v - min_v) / num_class[key]
+
+        for i in range(num_class[key]):
+            class_range = [min_v+(value_range_one_class*i), min(min_v+(value_range_one_class*(i+1)), max_v)]
+            value_in_this_class = []
+            # Not good, but ok.
+            for v in value:
+                if class_range[0] <= v <= class_range[1]:
+                    value_in_this_class.append(v)
+            all_bins[key].append(value_in_this_class)
+            all_bins_info[key].append({'mean': np.mean(class_range), 'max': class_range[1],
+                                         'min': class_range[0], 'num_samples': len(value_in_this_class)})
+
+    with open(data_dir + 'y_bin.pickle', 'wb') as fout:
+        pickle.dump(all_bins, fout)
+    with open(data_dir + 'y_bin_info.pickle', 'wb') as fout:
+        pickle.dump(all_bins_info, fout)
+    return all_bins
+
+
 def split_dataset():
 
     for i in tqdm(range(total_num//seq_len)):
@@ -148,7 +178,7 @@ if __name__ == '__main__':
     keys = ['throttle', 'brake', 'steering', 'speed', 'frame']
     total_num = 493531
     seq_len = 64
-    num_class = {'throttle': 100, 'brake': 100, 'steering': 200, 'speed': 100}
+    num_class = {'throttle': 20, 'brake': 20, 'steering': 20, 'speed': 20}
 
 
     totensor = transforms.ToTensor()

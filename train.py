@@ -46,8 +46,10 @@ scheduler = ReduceLROnPlateau(optimizer, patience=config.patience, verbose=True)
 print('Loading parameters...')
 encoder, decoder, optimizer, scheduler, current_epoch, global_batch_counter, global_timer = load_model_optimizer(encoder, decoder, optimizer, scheduler, config)
 
+criterion = {}
+for action in config.y_keys_info:
+    criterion[action] = torch.nn.CrossEntropyLoss(weight=torch.FloatTensor(config.weight_info[action]).cuda())
 
-criterion = torch.nn.CrossEntropyLoss()
 writer = SummaryWriter(config.logs_dir)
 for epoch in range(current_epoch, config.EPOCH):
     print('[%d] epoch starts training...'%epoch)
@@ -57,7 +59,7 @@ for epoch in range(current_epoch, config.EPOCH):
     train_loss_cp = 0.0
     for train_batch_idx, (train_input_images, train_actions) in enumerate(tqdm(trainloader), 1):
 
-        train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config)
+        train_loss_batch = train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config, sampling_prob=0.5)
 
         writer.add_scalar('batch/train_loss_batch', train_loss_batch, global_batch_counter)
         train_loss_cp += train_loss_batch
