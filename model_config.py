@@ -9,32 +9,34 @@ Created on Sat Apr  6 22:52:45 2019
 
 import torch
 from utils import try_mkdir
-from dataloader import GTAV
+from dataloader import GTAV, collate_fn
 
 
 class Config(object):
 
+#    manual_change = True
+    manual_change = False
+    lr = 4e-4
+    wd = 4e-4
+
+    DEBUG = False
     MODEL_NAME = 'xception'
     ENCODER_NAME = 'xception'
     EPOCH = 10
     NUM_WORKERS = 0
-    DEBUG = False
 
-    num_layers = 1
-    decoder_batch_size = 2
-    seq_len = 8
+    batch_size = 16
 
     decoder_dim = 512
     attention_dim = 512
-    action_dim = 50
 
     clip_value = 5.0
     dropout_prob = 0.5
-    lr = 4e-3
-    wd = 1e-3
-    patience = 2
+    init_lr = 4e-3
+    init_wd = 1e-3
+    patience = 1
 
-    check_point = 1000
+    save_freq_per_epoch = 2
 
     data_dir = './data/'
     model_dir = './models/%s/' % MODEL_NAME
@@ -51,14 +53,16 @@ class Config(object):
 
     def _init_data_loaders(self):
 
-        train_set = GTAV(data_dir=self.data_dir, datatype='train', batch_size=self.decoder_batch_size)
-        val_set = GTAV(data_dir=self.data_dir, datatype='val', batch_size=self.decoder_batch_size)
-        self.init_y = train_set.init_y
-        self.y_keys_info = train_set.y_keys_info
-        self.weight_info = train_set.weight_info
+        self.train_set = GTAV(data_dir=self.data_dir, datatype='train')
+        self.val_set = GTAV(data_dir=self.data_dir, datatype='val')
+        self.y_keys_info = self.train_set.y_keys_info
+        self.weight_info = self.train_set.weight_info
 
-        self.trainloader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.decoder_batch_size,
-                                                       shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)
+        self.trainloader = torch.utils.data.DataLoader(dataset=self.train_set, batch_size=self.batch_size, collate_fn=collate_fn,
+                                                       shuffle=True, drop_last=False, num_workers=self.NUM_WORKERS)
 
-        self.valloader = torch.utils.data.DataLoader(dataset=val_set, batch_size=self.decoder_batch_size,
-                                                     shuffle=True, drop_last=True, num_workers=self.NUM_WORKERS)
+        self.valloader = torch.utils.data.DataLoader(dataset=self.val_set, batch_size=self.batch_size, collate_fn=collate_fn,
+                                                     shuffle=False, drop_last=False, num_workers=self.NUM_WORKERS)
+
+        self.check_point = len(self.trainloader) // self.save_freq_per_epoch
+

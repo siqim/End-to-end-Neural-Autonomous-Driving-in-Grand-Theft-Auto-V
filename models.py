@@ -25,13 +25,12 @@ class Encoder(nn.Module):
         if show_feature_dims:
             with gzip.open(data_dir+'train/data_0.gz', 'rb') as f:
                 frame = pickle.load(f)['frame']
-                input_shape = [1, 1] + list(frame.shape[1:])
-            fake_image = torch.rand(input_shape)
-            with torch.no_grad():
-                x = self.forward(fake_image, 1, 1)
 
-            self.num_loc = x.size(2)
-            self.encoder_dim = x.size(3)
+            with torch.no_grad():
+                x = self.forward(frame.unsqueeze(0))
+
+            self.num_loc = x.size(1)
+            self.encoder_dim = x.size(2)
         else:
             self.num_loc = None
             self.encoder_dim = None
@@ -112,7 +111,7 @@ class Attention(nn.Module):
 class Decoder(nn.Module):
 
     def __init__(self, encoder_dim, decoder_dim, attention_dim,
-                 num_loc, y_keys_info, num_layers, dropout_prob=0.5):
+                 num_loc, y_keys_info, dropout_prob=0.5):
         super().__init__()
 
         self.encoder_dim = encoder_dim
@@ -146,8 +145,6 @@ class Decoder(nn.Module):
             y[action] = logits
 
         return y
-
-
 
 
 if __name__ == '__main__':

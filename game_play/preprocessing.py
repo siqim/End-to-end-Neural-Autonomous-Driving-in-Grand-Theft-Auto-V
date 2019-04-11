@@ -18,6 +18,7 @@ import torch
 from torchvision import transforms
 import os
 import numpy as np
+from copy import deepcopy
 
 
 def get_mean_std():
@@ -83,8 +84,8 @@ def find_linear_bins(num_class):
     all_bins = {'throttle': [], 'brake': [], 'steering': [], 'speed': []}
     all_bins_info = {'throttle': [], 'brake': [], 'steering': [], 'speed': []}
     for key, value in raw_y.items():
-        max_v = np.max(value)
-        min_v = np.min(value)
+        max_v = np.max(value) + 0.0001
+        min_v = np.min(value) - 0.0001
 
         value_range_one_class = (max_v - min_v) / num_class[key]
 
@@ -169,12 +170,40 @@ def save_bins_info():
     with open(y_bin_info_fname, 'wb') as fout:
         pickle.dump(y_bin, fout)
 
+def build_non_seq_data(phase='val_old'):
+    data_path = data_dir + phase + '/'
+    data_names = os.listdir(data_dir + phase + '/')
+    np.random.shuffle(data_names)
+
+    save_idx = [i for i in range(64) if (i+1)%8==0]
+
+    global_counter = 0
+
+    for data_name in tqdm(data_names):
+
+        with gzip.open(data_path+data_name, 'rb') as fin:
+            seq_data = pickle.load(fin)
+
+            for k, v in seq_data.items():
+                seq_data[k] = v[save_idx]
+
+        for idx in range(len(save_idx)):
+            save_dict = {}
+            for k, v, in seq_data.items():
+                save_dict[k] = torch.FloatTensor(v[idx].numpy())
+
+
+            filename = data_dir +  phase.split('_')[0] + '/data_%d.gz'%global_counter
+            with gzip.open(filename, 'wb', compresslevel=4) as fout:
+                pickle.dump(save_dict, fout)
+                global_counter += 1
+
 
 if __name__ == '__main__':
 
     data_dir = '../data/'
 
-    dataset = gzip.open('dataset.pz')
+#    dataset = gzip.open('dataset.pz')
     keys = ['throttle', 'brake', 'steering', 'speed', 'frame']
     total_num = 493531
     seq_len = 64

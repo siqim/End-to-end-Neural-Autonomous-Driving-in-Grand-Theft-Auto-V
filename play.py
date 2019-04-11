@@ -35,7 +35,7 @@ if __name__ == '__main__':
     ])
 
     print('Loading model...')
-    encoder, decoder, init_y = get_models()
+    encoder, decoder = get_models()
     y_bin = pickle.load(open('./data/y_bin_info.pickle', 'rb'))
 
 
@@ -49,8 +49,6 @@ if __name__ == '__main__':
     with torch.no_grad():
         encoder.eval()
         decoder.eval()
-        input_action = {k: v[0,:].cuda() for k, v in init_y.items()}
-        decoder_state = decoder._init_state(1)
 
         stoptime = time.time() + max_wall_time*3600
         while time.time() < stoptime:
@@ -60,13 +58,14 @@ if __name__ == '__main__':
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = transform(image).unsqueeze(0).cuda()
 
-            encoder_output = encoder.inference(image)
-            input_action, decoder_state = decoder.inference(encoder_output, input_action, decoder_state)
+            encoder_output = encoder.forward(image)
+            actions = decoder.forward(encoder_output)
 
-            commands = [y_bin['throttle'][input_action['throttle'].item()]['mean'],
+            commands = [y_bin['throttle'][actions['throttle'].max(dim=1)[1].item()]['mean'],
                         0,
-                        y_bin['steering'][input_action['steering'].item()]['mean']]
+                        y_bin['steering'][actions['steering'].max(dim=1)[1].item()]['mean']]
             print(commands)
+#            break
 
 
             client.sendMessage(Commands(commands[0], commands[1], commands[2]))

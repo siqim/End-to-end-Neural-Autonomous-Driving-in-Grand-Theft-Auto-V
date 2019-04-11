@@ -23,7 +23,8 @@ def try_mkdir(path):
     else:
         return False
 
-def save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_batch_counter, global_timer, config):
+def save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_batch_counter,
+                         global_batch_counter_val, global_timer, config):
    state = {
             'encoder': encoder.state_dict(),
             'decoder': decoder.state_dict(),
@@ -32,6 +33,7 @@ def save_model_optimizer(encoder, decoder, optimizer, scheduler, epoch, global_b
 
             'epoch': epoch,
             'global_batch_counter': global_batch_counter,
+            'global_batch_counter_val': global_batch_counter_val,
             'global_timer': global_timer
             }
 
@@ -56,79 +58,63 @@ def load_model_optimizer(encoder, decoder, optimizer, scheduler, config):
 
         current_epoch = states['epoch'] + 1
         global_batch_counter = states['global_batch_counter']
+        global_batch_counter_val = states['global_batch_counter_val']
         global_timer = states['global_timer']
 
-        return encoder, decoder, optimizer, scheduler, current_epoch, global_batch_counter, global_timer
+        return encoder, decoder, optimizer, scheduler, current_epoch, global_batch_counter, global_batch_counter_val, global_timer
 
     else:
-        return encoder, decoder, optimizer, scheduler, 1, 0, 0
+        return encoder, decoder, optimizer, scheduler, 1, 0, 0, 0
 
 def train(train_input_images, train_actions, encoder, decoder, criterion, optimizer, model_paras, config, sampling_prob):
 
-    times = int(train_input_images.shape[1] / config.seq_len)
+    train_input_images = train_input_images.cuda()
+    train_actions = {action: values.cuda() for action, values in train_actions.items()}
 
-    train_loss = 0
-    for i in range(times):
-        train_input_image_seq = train_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
-        train_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
-                            for action, values in train_actions.items()}
+    encoder.zero_grad()
+    decoder.zero_grad()
+    encoder_outputs = encoder.forward(train_input_images)
+    y = decoder.forward(encoder_outputs)
 
-        encoder.zero_grad()
-        decoder.zero_grad()
-        encoder_outputs = encoder.forward(train_input_image_seq, config.decoder_batch_size, config.seq_len)
-        y = decoder.forward(encoder_outputs, train_action_seq, config.decoder_batch_size, config.seq_len, sampling_prob)
+    losses = []
+    losses_log = {}
+    for action in config.y_keys_info.keys():
+        loss = criterion[action](y[action], train_actions[action])
+        losses.append(loss)
+        losses_log[action] = loss.item()
 
-        losses = []
-        for action in config.y_keys_info.keys():
-            losses.append(criterion[action](y[action], train_action_seq[action][:, 1:]))
-        total_loss = sum(losses)
-        total_loss.backward()
 
-        train_loss += total_loss.item()
+    total_loss = sum(losses)
+    total_loss.backward()
 
-        clip_grad_value_(model_paras, config.clip_value)
-        optimizer.step()
+    clip_grad_value_(model_paras, config.clip_value)
+    optimizer.step()
 
-        accuracy = {}
-        for action in config.y_keys_info.keys():
-            _, y_pred = y[action].max(dim=1)
-            accuracy[action] = (y_pred == train_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
-        print(accuracy)
+    return total_loss.item(), losses_log
 
-    return train_loss/times
+def validate(val_input_images, val_actions, encoder, decoder, criterion, config, num_correct):
 
-def validate(val_input_images, val_actions, encoder, decoder, criterion, config):
-    encoder.eval()
-    decoder.eval()
+    val_input_images = val_input_images.cuda()
+    val_actions = {action: values.cuda() for action, values in val_actions.items()}
 
-    times = int(val_input_images.shape[1] / config.seq_len)
+    encoder_outputs = encoder.forward(val_input_images)
+    y = decoder.forward(encoder_outputs)
 
-    val_loss = 0
+    losses = []
+    losses_log = {}
+    for action in config.y_keys_info.keys():
+        loss = criterion[action](y[action], val_actions[action])
+        losses.append(loss)
+        losses_log[action] = loss.item()
 
-    for i in range(times):
-#    with torch.no_grad():
-        val_input_image_seq = val_input_images[:, i*config.seq_len:(i+1)*config.seq_len].cuda()
-        val_action_seq = {action: torch.cat((config.init_y[action], values[:, i*config.seq_len:(i+1)*config.seq_len]), dim=1).cuda()\
-                            for action, values in val_actions.items()}
+    total_loss = sum(losses)
 
-        encoder_outputs = encoder.forward(val_input_image_seq, config.decoder_batch_size, config.seq_len)
-        y = decoder.validate(encoder_outputs, config.init_y, config.decoder_batch_size, config.seq_len)
+    for action in config.y_keys_info.keys():
+        _, y_pred = y[action].max(dim=1)
 
-        losses = []
-        for action in config.y_keys_info.keys():
-            losses.append(criterion[action](y[action], val_action_seq[action][:, 1:]))
-        total_loss = sum(losses)
+        num_correct[action] += (y_pred == val_actions[action]).sum().item()
 
-        val_loss += total_loss.item()
-
-#        accuracy = {}
-#        y_pred = {}
-#        for action in config.y_keys_info.keys():
-#            _, y_pred[action] = y[action].max(dim=1)
-#            accuracy[action] = (y_pred[action] == val_action_seq[action][:, 1:]).sum().item() / (config.decoder_batch_size*config.seq_len)
-#        print(accuracy)
-
-    return val_loss/times
+    return total_loss.item(), losses_log, num_correct
 
 def get_models():
 
@@ -141,8 +127,7 @@ def get_models():
     print('Initializing models...')
     encoder = Encoder(encoder_name=config.ENCODER_NAME, show_feature_dims=True)
     decoder = Decoder(encoder_dim=encoder.encoder_dim, decoder_dim=config.decoder_dim, attention_dim=config.attention_dim,
-                      action_dim=config.action_dim, num_loc=encoder.num_loc, y_keys_info=config.y_keys_info, num_layers=config.num_layers,
-                      dropout_prob=config.dropout_prob)
+                      num_loc=encoder.num_loc, y_keys_info=config.y_keys_info, dropout_prob=config.dropout_prob)
     encoder.cuda()
     decoder.cuda()
 
@@ -152,4 +137,6 @@ def get_models():
     encoder.load_state_dict(states['encoder'])
     decoder.load_state_dict(states['decoder'])
 
-    return encoder, decoder, config.init_y
+    print('Loading Epoch', states['epoch'])
+
+    return encoder, decoder
