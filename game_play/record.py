@@ -15,7 +15,7 @@ from utils import set_logger
 def reset():
     dataset = Dataset(rate=rate, frame=frame, throttle=True, brake=True, steering=True, speed=True, drivingMode=True, location=True)
     scenario = Scenario(weather='EXTRASUNNY', vehicle='voltic', time=[12, 0], drivingMode=[1074528293, max_speed/1.6],
-                        location=[-3000, 2500])
+                        location=[888, 888])
     client.sendMessage(Config(scenario=scenario, dataset=dataset))
 
 
@@ -25,11 +25,11 @@ if __name__ == '__main__':
     host = 'localhost'
     port = 8000
     dataset_path = 'dataset.pz'
-    log_freq = 10 # in minute
+    log_freq = 1 # in minute
     max_stop_time = 10 # in second
     max_wall_time = 10 # in hour
     max_speed = 120 # in km
-    rate = 30 # in HZ
+    rate = 10 # in HZ
     frame = [350, 205+20]
 
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     dataset = Dataset(rate=rate, frame=frame, throttle=True, brake=True, steering=True, speed=True, drivingMode=True, location=True)
 
     scenario = Scenario(weather='EXTRASUNNY', vehicle='voltic', time=[12, 0], drivingMode=[1074528293, max_speed/1.6],
-                        location=[500, 500])
+                        location=[-888, -888])
 
     client.sendMessage(Start(scenario=scenario, dataset=dataset))
 

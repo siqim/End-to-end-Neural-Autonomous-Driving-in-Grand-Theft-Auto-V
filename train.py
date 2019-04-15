@@ -44,11 +44,15 @@ scheduler = ReduceLROnPlateau(optimizer, patience=config.patience, verbose=True)
 print('Loading parameters...')
 encoder, decoder, optimizer, scheduler, current_epoch, global_batch_counter, global_batch_counter_val, global_timer = load_model_optimizer(encoder, decoder, optimizer, scheduler, config)
 
+writer = SummaryWriter(config.logs_dir)
 if config.manual_change:
     print('Changing learning rate and weight decay manually!')
     for param_group in optimizer.param_groups:
         param_group['lr'] = config.lr
         param_group['weight_decay'] = config.wd
+        for idx, param_group in enumerate(optimizer.param_groups, 1):
+            writer.add_scalar('epoch/lr_%d'%idx, param_group['lr'], global_batch_counter)
+
 
 criterion = {}
 for action in config.y_keys_info:
@@ -57,11 +61,9 @@ for action in config.y_keys_info:
 encoder.train()
 decoder.train()
 
-writer = SummaryWriter(config.logs_dir)
 for epoch in range(current_epoch, config.EPOCH):
     print('[%d] epoch starts training...'%epoch)
     start_epoch_time = time.time()
-
 
     train_loss_cp = 0.0
     for train_batch_idx, (train_input_images, train_actions) in enumerate(tqdm(trainloader), 1):
