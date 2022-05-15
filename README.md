@@ -3,7 +3,7 @@ This repo was a course project I did for Stat 578 Spring 2019 in UIUC. It is to 
 https://www.youtube.com/watch?v=Gx3c5OmkyyE). The resulting model can drive decently in GAT V after training 20 hrs with 30 gigabytes data on a GTX 1060!
 
 # Reference
-If you find this repo useful, please cite us:
+If you find this repo useful, please star us or cite us. :)
 ```
 @software{Miao_End-to-end-Neural-Autonomous-Driving-in-Grand-Theft-Auto-V_2019,
 author = {Miao, Siqi},
